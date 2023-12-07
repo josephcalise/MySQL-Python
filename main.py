@@ -4,10 +4,10 @@ import mysql.connector
 def connect_to_database():
     try:
         conn = mysql.connector.connect(
-            host='insert connection',
+            host='Input DB Connection',
             port='3306',
-            user='insert username',
-            password='insert password',
+            user='Input DB User',
+            password='Input DB Passowrd',
             database='FSEEngStore' #This is the name of the DB you connecting to.
         )
         print(f'Connected to DB.')
@@ -95,6 +95,24 @@ def itemsNeverOrdered(conn):
     except mysql.connector.Error as e:
         print(f'Error creating a record {e}')
 
+def revenueBySupplier(conn):
+    cursor = conn.cursor()
+    query = ("SELECT S.SupplierID , S.SupplierName, SUM(OD.UnitPrice*OD.Quantity) FROM Suppliers S "
+             "join Products P on S.SupplierID = P.SupplierID "
+             "join OrderDetails OD on P.ProductID = OD.ProductID "
+             "group by S.SupplierID;")
+    try:
+        cursor.execute(query)
+        data = cursor.fetchall()
+        if len(data) == 0:
+            print("You have no customers!")
+        else:
+            print("Supplier's Revenue:")
+            for supplierID, supplierName, revenue in data:
+                print(f'Supplier ID: {supplierID} | Supplier Name: {supplierName} | Total Sales Revenue: ${revenue}')
+    except mysql.connector.Error as e:
+        print(f'Error creating a record {e}')
+
 
 def main():
     #form the connection:
@@ -122,4 +140,4 @@ def main():
     selection = input("Please enter your selection:\n")
 
 conn = connect_to_database()
-itemsNeverOrdered(conn)
+revenueBySupplier(conn)
