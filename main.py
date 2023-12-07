@@ -4,10 +4,10 @@ import mysql.connector
 def connect_to_database():
     try:
         conn = mysql.connector.connect(
-            host='34.105.41.26',
+            host='insert connection',
             port='3306',
-            user='root',
-            password='P5(2Kn2vhNmprg-f',
+            user='insert username',
+            password='insert password',
             database='FSEEngStore' #This is the name of the DB you connecting to.
         )
         print(f'Connected to DB.')
@@ -46,7 +46,9 @@ def outOfStock(conn): #Menu 1
 def orderCountByCustomer(conn):
     try:
         cursor = conn.cursor()
-        query = ("SELECT C.CustomerID, COUNT(OrderID) FROM Customers C left outer join Orders O on O.CustomerID = C.CustomerID group by C.CustomerID")
+        query = ("SELECT C.CustomerID, COUNT(OrderID) FROM Customers C "
+                 "left outer join Orders O on O.CustomerID = C.CustomerID "
+                 "group by C.CustomerID")
         cursor.execute(query)
         data = cursor.fetchall()
         if len(data) == 0:
@@ -58,22 +60,45 @@ def orderCountByCustomer(conn):
         print(f'Error creating a record {e}')
 
 def maxItemPerOrder(conn):
-    ## Change output here
     try:
         cursor = conn.cursor()
-        query = ("SELECT OD.OrderID, P.ProductID, P.ProductName, P.UnitPrice FROM OrderDetails OD join Products P on OD.ProductID = P.ProductID WHERE (OD.OrderID, OD.UnitPrice) IN (SELECT OrderID, MAX(UnitPrice) FROM OrderDetails GROUP BY OrderID);")
+        query = ("SELECT OD.OrderID, P.ProductID, P.ProductName, P.UnitPrice "
+                 "FROM OrderDetails OD join Products P on OD.ProductID = P.ProductID "
+                 "WHERE (OD.OrderID, OD.UnitPrice) IN ("
+                 "SELECT OrderID, MAX(UnitPrice) FROM OrderDetails GROUP BY OrderID);")
         cursor.execute(query)
         data = cursor.fetchall()
         if len(data) == 0:
             print("You have no customers!")
         else:
+            print("Most Expensive Items Per Order:")
             for orderID, prodID, prodName, price in data:
-                print(f'Order {orderID}: Product ID {prodID} / {prodName} / ${price}')
+                print(f'Order #{orderID}: Product ID {prodID} | Product Name: {prodName} | Product Price: ${price}')
+    except mysql.connector.Error as e:
+        print(f'Error creating a record {e}')
+
+def itemsNeverOrdered(conn):
+    cursor = conn.cursor()
+    query = ("SELECT P.ProductID, P.ProductName, P.UnitPrice FROM Products P "
+             "left join OrderDetails OD on P.ProductID = OD.ProductID "
+             "WHERE P.ProductID NOT IN ("
+             "SELECT DISTINCT ProductID FROM OrderDetails);")
+    try:
+        cursor.execute(query)
+        data = cursor.fetchall()
+        if len(data) == 0:
+            print("You have no customers!")
+        else:
+            print("Current products that have never been ordered:")
+            for prodID, prodName, price in data:
+                print(f'Product ID: {prodID} | Product Name: {prodName} | Product Price: ${price}')
     except mysql.connector.Error as e:
         print(f'Error creating a record {e}')
 
 
 def main():
+    #form the connection:
+    conn = connect_to_database()
     print(
     """
     $$$$$$$$\  $$$$$$\  $$$$$$$$\ $$$$$$$$\ $$\   $$\  $$$$$$\   $$$$$$\ $$$$$$$$\  $$$$$$\  $$$$$$$\  $$$$$$$$\ 
@@ -97,4 +122,4 @@ def main():
     selection = input("Please enter your selection:\n")
 
 conn = connect_to_database()
-maxItemPerOrder(conn)
+itemsNeverOrdered(conn)
