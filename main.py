@@ -118,7 +118,7 @@ def queryCustomers(conn):
     except mysql.connector.Error as e:
         print(f'Error creating a record {e}')
 
-def outOfStock(conn): #Menu 1
+def outOfStock(conn):
     try:
         cursor = conn.cursor()
         query = ("SELECT ProductID, ProductName From Products Where UnitsInStock = 0")
@@ -135,6 +135,8 @@ def outOfStock(conn): #Menu 1
     except mysql.connector.Error as e:
         print(f'Error creating a record {e}')
 
+
+
 def orderCountByCustomer(conn):
     try:
         cursor = conn.cursor()
@@ -143,6 +145,7 @@ def orderCountByCustomer(conn):
                  "group by C.CustomerID")
         cursor.execute(query)
         data = cursor.fetchall()
+        #Checking if the data is empty meaning no customers have ordered anything
         if len(data) == 0:
             print("You have no customers!")
         else:
@@ -154,14 +157,16 @@ def orderCountByCustomer(conn):
 def maxItemPerOrder(conn):
     try:
         cursor = conn.cursor()
+        # sub query to find customers and be able to relay product information
         query = ("SELECT DISTINCT OD.OrderID, P.ProductID, P.ProductName, P.UnitPrice "
                  "FROM OrderDetails OD join Products P on OD.ProductID = P.ProductID "
                  "WHERE (OD.OrderID, OD.UnitPrice) IN ("
                  "SELECT OrderID, MAX(UnitPrice) FROM OrderDetails GROUP BY OrderID);")
         cursor.execute(query)
         data = cursor.fetchall()
+        #Checking for an empty return
         if len(data) == 0:
-            print("You have no customers!")
+            print("There are no items that match this criteria.")
         else:
             print("Most Expensive Items Per Order:")
             for orderID, prodID, prodName, price in data:
@@ -171,6 +176,7 @@ def maxItemPerOrder(conn):
 
 def itemsNeverOrdered(conn):
     cursor = conn.cursor()
+    #Using the same sub query, but checking for things not in.
     query = ("SELECT P.ProductID, P.ProductName, P.UnitPrice FROM Products P "
              "left join OrderDetails OD on P.ProductID = OD.ProductID "
              "WHERE P.ProductID NOT IN ("
@@ -205,36 +211,44 @@ def revenueBySupplier(conn):
     except mysql.connector.Error as e:
         print(f'Error creating a record {e}')
 
-import time
+
 def newOrderDetails(conn, orderID):
     cursor = conn.cursor()
+    #creating a dict to be able to store item and number of items they are ordering.
     orderedItems = {}
     more = True
+    #This allows for multiple order entries instead of reprompting
     while more == True:
+        #checking if the product entered exsists
         productOrdered = int(input('Enter the product ID of the ordered Item:\n'))
         quantity = int(input('Enter the quantity ordered:\n'))
         query = f"SELECT UnitsInStock FROM Products WHERE ProductID = {productOrdered}"
         cursor.execute(query)
         prodcutDetails = cursor.fetchone()
+        #Conditional to tell that we do not have the item
         if prodcutDetails == None:
             print('We do not have a product with that ID.')
             continue
+        #Checking stock of item they are trying to order.
         elif prodcutDetails[0] == 0:
             print("We are out of stock on that product.")
             continue
+        #Allows for the person to order only what we have in stock.
         while quantity > prodcutDetails[0]:
             quantity = int(input(f'We only have {prodcutDetails[0]} in stock. Please enter a new quantity:\n'))
-        #get all items
+        #if all conditions are met, store the item in the dictionary
         orderedItems[productOrdered] = quantity
         moreProd = input('Did they order more items? (Y/N):')
         if moreProd.lower() == 'y':
             more = True
         elif moreProd.lower() == 'n':
             more = False
+    #loop through and create each record for all items, and store in Order Details
     for item in orderedItems:
         query = f"SELECT UnitPrice FROM Products WHERE ProductID = {item}"
         cursor.execute(query)
         price = cursor.fetchone()
+        #Calls Stored Prodcedure
         cursor.callproc('NewOrderDetails', (orderID, item, orderedItems[item], price[0]))
         conn.commit()
         print("Your records have been added to OrderDetails")
@@ -244,6 +258,7 @@ def newOrder(conn):
     import datetime
     custID = input("Please enter the Customer ID:\n")
     validID = False
+    #Checks for a valid CustomerID
     while validID == False:
         try:
             int(custID)
@@ -253,6 +268,7 @@ def newOrder(conn):
     query = f"SELECT * FROM Customers WHERE CustomerID = {custID}"
     cursor.execute(query)
     data = cursor.fetchone()
+    #Keeps asking for a valid customerID
     while data == None:
         custID = (input("We do not have a customer with that ID try again:\n"))
         validID = False
@@ -265,6 +281,7 @@ def newOrder(conn):
         query = f"SELECT * FROM Customers WHERE CustomerID = {custID}"
         cursor.execute(query)
         data = cursor.fetchone()
+    #Getting and checking Dates for ordering and shipping
     orderDate = (input("Please enter the order date (YYYY-MM-DD):\n"))
     orderDateValid = False
     while orderDateValid == False:
@@ -281,16 +298,20 @@ def newOrder(conn):
             shipDateValid = True
         except:
             shipDate = (input("Please enter a valid order date (YYYY-MM-DD):\n"))
+    #Query customer so address information can be populated without prompting
     query = f"SELECT Address, City, PostalCode, Country FROM Customers WHERE CustomerID = {custID}"
     cursor.execute(query)
     data = cursor.fetchone()
+    #Calls stored procedure for a new order
     cursor.callproc('NewOrder', (custID, orderDate, shipDate, data[0], data[1], data[2], data[3]))
     conn.commit()
     print('Your record has been created in Orders.')
     time.sleep(.5)
+    #queries the most recent order from the customer to put into orderdetail function
     query = f"SELECT OrderID FROM Orders WHERE CustomerID = {custID} ORDER BY OrderID DESC LIMIT 1"
     cursor.execute(query)
     data = cursor.fetchone()
+    #call and run for orderdetail population
     newOrderDetails(conn, data[0])
 
 def main():
